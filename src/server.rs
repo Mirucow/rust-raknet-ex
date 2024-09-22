@@ -17,7 +17,7 @@ type SessionSender = (i64, Sender<Vec<u8>>);
 
 /// Implementation of Raknet Server.
 pub struct RaknetListener {
-    motd: String,
+    motd: Mutex<String>,
     socket: Option<Arc<UdpSocket>>,
     guid: u64,
     listened: bool,
@@ -50,7 +50,7 @@ impl RaknetListener {
         let (connection_sender, connection_receiver) = channel::<RaknetSocket>(10);
 
         let ret = Self {
-            motd: String::new(),
+            motd: Mutex::new(String::new()),
             socket: Some(Arc::new(s)),
             guid: rand::random(),
             listened: false,
@@ -88,7 +88,7 @@ impl RaknetListener {
         let (connection_sender, connection_receiver) = channel::<RaknetSocket>(10);
 
         let ret = Self {
-            motd: String::new(),
+            motd: Mutex::new(String::new()),
             socket: Some(Arc::new(s)),
             guid: rand::random(),
             listened: false,
@@ -208,7 +208,7 @@ impl RaknetListener {
             return;
         }
 
-        if self.motd.is_empty() {
+        if self.motd.lock().await.is_empty() {
             self.set_motd(
                 SERVER_NAME,
                 MAX_CONNECTION,
@@ -522,7 +522,7 @@ impl RaknetListener {
         game_type: &str,
         port: u16,
     ) {
-        self.motd = format!(
+        *self.motd.lock().await = format!(
             "MCPE;{};{};{};0;{};{};Bedrock level;{};1;{};",
             server_name,
             mc_protocol_version,
@@ -542,7 +542,7 @@ impl RaknetListener {
     /// let motd = listener.get_motd().await;
     /// ```
     pub async fn get_motd(&self) -> String {
-        self.motd.clone()
+        self.motd.lock().await.clone()
     }
 
     /// Returns the socket address of the local half of this Raknet connection.
@@ -589,8 +589,8 @@ impl RaknetListener {
     /// let mut socket = RaknetListener::bind("127.0.0.1:19132".parse().unwrap()).await.unwrap();
     /// socket.set_full_motd("motd").await;
     /// ```
-    pub fn set_full_motd(&mut self, motd: String) -> Result<()> {
-        self.motd = motd;
+    pub async fn set_full_motd(&mut self, motd: String) -> Result<()> {
+        *self.motd.lock().await = motd;
         Ok(())
     }
 
