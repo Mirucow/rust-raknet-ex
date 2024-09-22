@@ -21,7 +21,6 @@ pub struct RaknetListener {
     socket: Option<Arc<UdpSocket>>,
     guid: u64,
     listened: bool,
-    connection_receiver: Receiver<RaknetSocket>,
     connection_sender: Sender<RaknetSocket>,
     sessions: Arc<Mutex<HashMap<SocketAddr, SessionSender>>>,
     close_notifier: Arc<tokio::sync::Semaphore>,
@@ -39,7 +38,7 @@ impl RaknetListener {
     /// listener.listen().await;
     /// let mut socket = socket = listener.accept().await.unwrap();
     /// ```
-    pub async fn bind(sockaddr: &SocketAddr) -> Result<Self> {
+    pub async fn bind(sockaddr: &SocketAddr) -> Result<(Self, Receiver<RaknetSocket>)> {
         let s = match UdpSocket::bind(sockaddr).await {
             Ok(p) => p,
             Err(_) => {
@@ -54,7 +53,6 @@ impl RaknetListener {
             socket: Some(Arc::new(s)),
             guid: rand::random(),
             listened: false,
-            connection_receiver,
             connection_sender,
             sessions: Arc::new(Mutex::new(HashMap::new())),
             close_notifier: Arc::new(tokio::sync::Semaphore::new(0)),
@@ -64,7 +62,7 @@ impl RaknetListener {
         };
 
         ret.drop_watcher().await;
-        Ok(ret)
+        Ok((ret, connection_receiver))
     }
 
     /// Creates a new RaknetListener from a UdpSocket.
@@ -74,7 +72,7 @@ impl RaknetListener {
     /// let raw_socket = std::net::UdpSocket::bind("127.0.0.1:19132").unwrap();
     /// let listener = RaknetListener::from_std(raw_socket);
     /// ```
-    pub async fn from_std(s: std::net::UdpSocket) -> Result<Self> {
+    pub async fn from_std(s: std::net::UdpSocket) -> Result<(Self, Receiver<RaknetSocket>)> {
         s.set_nonblocking(true)
             .expect("set udpsocket nonblocking error");
 
@@ -92,7 +90,6 @@ impl RaknetListener {
             socket: Some(Arc::new(s)),
             guid: rand::random(),
             listened: false,
-            connection_receiver,
             connection_sender,
             sessions: Arc::new(Mutex::new(HashMap::new())),
             close_notifier: Arc::new(tokio::sync::Semaphore::new(0)),
@@ -102,7 +99,7 @@ impl RaknetListener {
         };
 
         ret.drop_watcher().await;
-        Ok(ret)
+        Ok((ret, connection_receiver))
     }
 
     async fn start_session_collect(
@@ -471,37 +468,6 @@ impl RaknetListener {
             }
             raknet_log_debug!("listen worker closed");
         });
-    }
-
-    /// Waiting for and receiving new Raknet connections, returning a Raknet socket
-    ///
-    /// Call this method must be after calling RaknetListener::listen()
-    ///
-    /// # Example
-    /// ```ignore
-    /// let mut listener = RaknetListener::bind("127.0.0.1:19132".parse().unwrap()).await.unwrap();
-    /// listener.listen().await;
-    /// let mut socket = listener.accept().await.unwrap();
-    /// ```
-    pub async fn accept(&mut self) -> Result<RaknetSocket> {
-        if !self.listened {
-            Err(RaknetError::NotListen)
-        } else {
-            tokio::select! {
-                a = self.connection_receiver.recv() => {
-                    match a {
-                        Some(p) => Ok(p),
-                        None => {
-                            Err(RaknetError::NotListen)
-                        },
-                    }
-                },
-                _ = self.close_notifier.acquire() => {
-                    raknet_log_debug!("accept close notified");
-                    Err(RaknetError::NotListen)
-                }
-            }
-        }
     }
 
     /// Set the current motd, this motd will be provided to the client in the unconnected pong.
