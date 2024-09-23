@@ -17,7 +17,7 @@ type SessionSender = (i64, Sender<Vec<u8>>);
 
 /// Implementation of Raknet Server.
 pub struct RaknetListener {
-    motd: Mutex<String>,
+    motd: Arc<Mutex<String>>,
     socket: Option<Arc<UdpSocket>>,
     guid: u64,
     listened: bool,
@@ -49,7 +49,7 @@ impl RaknetListener {
         let (connection_sender, connection_receiver) = channel::<RaknetSocket>(10);
 
         let ret = Self {
-            motd: Mutex::new(String::new()),
+            motd: Arc::new(Mutex::new(String::new())),
             socket: Some(Arc::new(s)),
             guid: rand::random(),
             listened: false,
@@ -86,7 +86,7 @@ impl RaknetListener {
         let (connection_sender, connection_receiver) = channel::<RaknetSocket>(10);
 
         let ret = Self {
-            motd: Mutex::new(String::new()),
+            motd: Arc::new(Mutex::new(String::new())),
             socket: Some(Arc::new(s)),
             guid: rand::random(),
             listened: false,
@@ -221,7 +221,7 @@ impl RaknetListener {
         let guid = self.guid;
         let sessions = self.sessions.clone();
         let connection_sender = self.connection_sender.clone();
-        let motd = self.get_motd().await;
+        let motd = self.motd.clone();
 
         self.listened = true;
 
@@ -239,7 +239,6 @@ impl RaknetListener {
             raknet_log_debug!("start listen worker : {}", local_addr);
 
             loop {
-                let motd = motd.clone();
                 let size: usize;
                 let addr: SocketAddr;
 
@@ -277,6 +276,8 @@ impl RaknetListener {
                             Err(_) => continue,
                         };
 
+                        let motd = motd.lock().await.clone();
+
                         let packet = crate::packet::PacketUnconnectedPong {
                             time: cur_timestamp_millis(),
                             guid,
@@ -302,6 +303,8 @@ impl RaknetListener {
                             Ok(p) => p,
                             Err(_) => continue,
                         };
+
+                        let motd = motd.lock().await.clone();
 
                         let packet = crate::packet::PacketUnconnectedPong {
                             time: cur_timestamp_millis(),
