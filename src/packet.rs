@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::datatype::{RaknetReader, RaknetWriter};
 use crate::error::RaknetError;
 use crate::error::*;

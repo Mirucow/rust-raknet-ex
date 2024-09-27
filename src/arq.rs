@@ -53,7 +53,6 @@ const CONTINUOUS_SEND_FLAG: u8 = 0x8;
 
 #[derive(Clone)]
 pub struct FrameSetPacket {
-    pub id: u8,
     pub sequence_number: u32,
     pub flags: u8,
     pub length_in_bytes: u16,
@@ -72,7 +71,6 @@ impl FrameSetPacket {
         let flag = r.to_u8() << 5;
 
         FrameSetPacket {
-            id: 0,
             sequence_number: 0,
             flags: flag,
             length_in_bytes: data.len() as u16,
@@ -91,7 +89,6 @@ impl FrameSetPacket {
         let mut reader = RaknetReader::new(buf);
 
         let mut ret = Self {
-            id: 0,
             sequence_number: 0,
             flags: 0,
             length_in_bytes: 0,
@@ -105,7 +102,7 @@ impl FrameSetPacket {
             data: vec![],
         };
 
-        ret.id = reader.read_u8().unwrap();
+        reader.read_u8().unwrap();
         ret.sequence_number = reader.read_u24(Endian::Little).unwrap();
 
         //Top 3 bits are reliability type
@@ -282,7 +279,6 @@ impl FrameVec {
 
         while reader.pos() < size.try_into().unwrap() {
             let mut frame = FrameSetPacket {
-                id: ret.id,
                 sequence_number: ret.sequence_number,
                 flags: 0,
                 length_in_bytes: 0,
