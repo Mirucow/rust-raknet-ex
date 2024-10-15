@@ -3,7 +3,7 @@ use std::{collections::HashMap, net::SocketAddr};
 use crate::{datatype::*, error::*, fragment::FragmentQ, raknet_log_debug, utils::*};
 
 /// Enumeration type options for Raknet transport reliability
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Reliability {
     /// Unreliable packets are sent by straight UDP. They may arrive out of order, or not at all. This is best for data that is unimportant, or data that you send very frequently so even if some packets are missed newer packets will compensate.
     /// Advantages - These packets don't need to be acknowledged by the network, saving the size of a UDP header in acknowledgment (about 50 bytes or so). The savings can really add up.
