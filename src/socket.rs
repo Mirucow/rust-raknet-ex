@@ -829,6 +829,45 @@ impl RaknetSocket {
         Ok(())
     }
 
+    pub async fn send_reliable_auto(&self, buf: &[u8]) -> Result<()> {
+        if buf.is_empty() {
+            return Err(RaknetError::PacketHeaderError);
+        }
+
+        if buf[0] != 0xfe {
+            return Err(RaknetError::PacketHeaderError);
+        }
+
+        if self.close_notifier.is_closed() {
+            return Err(RaknetError::ConnectionClosed);
+        }
+
+        let mut sendq = self.sendq.write().await;
+
+        if sendq.get_mtu() - 60 > buf.len() as u16 {
+            sendq.insert(Reliability::Reliable, buf)?;
+        } else {
+            sendq.insert(Reliability::ReliableOrdered, buf)?;
+        }
+
+        let sender = self.sender.clone();
+
+        for f in sendq.flush(cur_timestamp_millis(), &self.peer_addr) {
+            let data = f.serialize().unwrap();
+            sender
+                .send((
+                    data,
+                    self.peer_addr,
+                    self.enable_loss.load(Ordering::Relaxed),
+                    self.loss_rate.load(Ordering::Relaxed),
+                ))
+                .await
+                .unwrap();
+        }
+
+        Ok(())
+    }
+
     /// Wait all packet acked
     ///
     /// # Example

@@ -723,6 +723,10 @@ impl SendQ {
         };
     }
 
+    pub fn get_mtu(&self) -> u16 {
+        self.mtu
+    }
+
     pub fn get_rto(&self) -> i64 {
         self.rto
     }
