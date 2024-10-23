@@ -731,6 +731,10 @@ impl RaknetSocket {
         Ok(())
     }
 
+    pub fn is_closed(&self) -> bool {
+        self.close_notifier.is_closed()
+    }
+
     /// Unconnected ping a Raknet Server and return latency and motd.
     ///
     /// # Example
